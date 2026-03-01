@@ -12,6 +12,7 @@ import urllib.error
 from datetime import datetime
 from typing import Dict, Optional, List
 import logging
+import google.generativeai as genai
 
 from nexus.core.models import (
     ContactState, NudgeResult, DecisionType, ScoreTier
@@ -106,39 +107,22 @@ def _build_rationale(decision_type: DecisionType, context: Dict) -> str:
 
 # ─── LLM API Call ─────────────────────────────────────────────────────────────
 
-def _call_claude_api(prompt: str, api_key: str) -> Optional[str]:
-    """Call Claude API to generate a message draft."""
-    url = "https://api.anthropic.com/v1/messages"
-    payload = {
-        "model": CONFIG.llm_model,
-        "max_tokens": CONFIG.llm_max_tokens,
-        "system": "You are Nexus, an AI relationship intelligence assistant. You help people maintain meaningful relationships by generating warm, contextual re-engagement messages. Always write naturally, as if the user themselves composed the message.",
-        "messages": [{"role": "user", "content": prompt}]
-    }
-
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-        },
-        method="POST",
-    )
-
+def _call_gemini_api(prompt: str, api_key: str) -> Optional[str]:
+    """Call Gemini API to generate a message draft."""
     try:
-        with urllib.request.urlopen(req, timeout=15) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            if result.get("content") and result["content"][0].get("type") == "text":
-                return result["content"][0]["text"].strip()
-    except urllib.error.HTTPError as e:
-        logger.error(f"Claude API HTTP error: {e.code} - {e.read().decode()}")
-    except urllib.error.URLError as e:
-        logger.error(f"Claude API connection error: {e}")
+        genai.configure(api_key=api_key)
+        # Using gemini-1.5-flash for speed and efficiency in nudge generation
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction="You are Nexus, an AI relationship intelligence assistant. You help people maintain meaningful relationships by generating warm, contextual re-engagement messages. Always write naturally, as if the user themselves composed the message."
+        )
+        
+        response = model.generate_content(prompt)
+        
+        if response and response.text:
+            return response.text.strip()
     except Exception as e:
-        logger.error(f"Claude API unexpected error: {e}")
+        logger.error(f"Gemini API unexpected error: {e}")
 
     return None
 
@@ -208,7 +192,7 @@ def generate_nudge(
 
     if effective_api_key:
         prompt = _build_prompt(decision_type, context)
-        message_draft = _call_claude_api(prompt, effective_api_key)
+        message_draft = _call_gemini_api(prompt, effective_api_key)
         if message_draft:
             llm_used = True
             logger.info(f"LLM nudge generated for {state.contact_id}")

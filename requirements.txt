@@ -1,0 +1,16 @@
+# Nexus Backend Requirements
+# Install with: pip install -r requirements.txt
+
+flask>=3.0.0
+networkx>=3.0
+numpy>=1.24.0
+scipy>=1.10.0
+pandas>=2.0.0
+requests>=2.31.0
+
+# Optional but recommended
+# vaderSentiment>=3.3.2   # Enhanced sentiment (falls back to built-in lexicon)
+# spacy>=3.6.0            # Enhanced NLP (falls back to keyword extraction)
+
+# Development / Testing
+# pytest>=7.0.0
